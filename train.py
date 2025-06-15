@@ -1,38 +1,78 @@
-import gradio as gr
-from utils import load_model, generate_response
+import os
 import json
+import torch
+import pandas as pd
+from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification, Trainer, TrainingArguments
+from sklearn.model_selection import train_test_split
+from datasets import Dataset, DatasetDict
+from utils import preprocess_data, compute_metrics
 
 # Load config
-with open("config.json") as f:
+with open("config.json", "r") as f:
     config = json.load(f)
 
-# Load model and tokenizer
-model, tokenizer = load_model(
-    config["model_name"],
-    quantized=config.get("quantized", True)
+# Load datasets
+qa_data = pd.read_csv("data/financial_qa_dataset.csv")
+sentiment_data = pd.read_csv("data/sentiment_dataset.csv")
+
+# Add task type
+qa_data["task"] = "qa"
+sentiment_data["task"] = "sentiment"
+
+# Combine datasets
+combined_df = pd.concat([qa_data, sentiment_data], ignore_index=True)
+combined_df = preprocess_data(combined_df)
+
+# Split dataset
+train_texts, val_texts = train_test_split(combined_df, test_size=0.1, random_state=42)
+dataset = DatasetDict({
+    "train": Dataset.from_pandas(train_texts),
+    "validation": Dataset.from_pandas(val_texts)
+})
+
+# Tokenizer
+tokenizer = DistilBertTokenizerFast.from_pretrained(config["model_name_or_path"])
+
+def tokenize_function(examples):
+    return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=config["max_length"])
+
+tokenized_datasets = dataset.map(tokenize_function, batched=True)
+
+# Load model
+model = DistilBertForSequenceClassification.from_pretrained(
+    config["model_name_or_path"],
+    num_labels=2,
 )
 
-def chatbot(prompt):
-    return generate_response(
-        model=model,
-        tokenizer=tokenizer,
-        prompt=prompt,
-        max_length=config.get("max_length", 512),
-        temperature=config.get("temperature", 0.7),
-        top_p=config.get("top_p", 0.9),
-        top_k=config.get("top_k", 50),
-        num_beams=config.get("num_beams", 4)
-    )
-
-# Gradio UI
-iface = gr.Interface(
-    fn=chatbot,
-    inputs=gr.Textbox(lines=2, placeholder="Ask me something about finance..."),
-    outputs="text",
-    title="Finance Q&A + Sentiment Chatbot",
-    description="Ask financial questions or give a sentence to get sentiment + reasoning!"
+# Training args
+training_args = TrainingArguments(
+    output_dir="./model",
+    evaluation_strategy="steps",
+    eval_steps=config["eval_steps"],
+    logging_steps=config["logging_steps"],
+    save_steps=config["save_steps"],
+    per_device_train_batch_size=config["batch_size"],
+    per_device_eval_batch_size=config["batch_size"],
+    num_train_epochs=config["num_train_epochs"],
+    learning_rate=config["learning_rate"],
+    weight_decay=config["weight_decay"],
+    save_total_limit=config["save_total_limit"],
+    load_best_model_at_end=True,
+    metric_for_best_model="accuracy"
 )
 
-if __name__ == "__main__":
-    iface.launch()
+# Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_datasets["train"],
+    eval_dataset=tokenized_datasets["validation"],
+    compute_metrics=compute_metrics,
+    tokenizer=tokenizer
+)
+
+# Train
+trainer.train()
+model.save_pretrained("model")
+tokenizer.save_pretrained("model")
 
