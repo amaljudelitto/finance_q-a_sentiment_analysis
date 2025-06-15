@@ -1,34 +1,20 @@
-import json
-from utils import load_model, generate_response
-
-# Load config
-with open("config.json") as f:
-    config = json.load(f)
-
-
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
 
-model_name = "NousResearch/TinyLLaMA-1.1B-Chat-v1.0"  # Small, lightweight, finance-capable
+model_name = "NousResearch/TinyLLaMA-1.1B-Chat-v1.0"
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name)
 
+model.eval()
 
-def infer(prompt):
-    response = generate_response(
-        model=model,
-        tokenizer=tokenizer,
-        prompt=prompt,
-        max_length=config.get("max_length", 512),
-        temperature=config.get("temperature", 0.7),
-        top_p=config.get("top_p", 0.9),
-        top_k=config.get("top_k", 50),
-        num_beams=config.get("num_beams", 4)
-    )
-    print("\n[Model Output]:\n", response)
-
+def generate_answer(question, max_length=150):
+    inputs = tokenizer.encode(question, return_tensors="pt")
+    with torch.no_grad():
+        outputs = model.generate(inputs, max_length=max_length, do_sample=True, top_p=0.95, temperature=0.8)
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 if __name__ == "__main__":
-    prompt = input("Enter a financial question or sentence: ")
-    infer(prompt)
-
+    question = input("Enter your finance question: ")
+    answer = generate_answer(question)
+    print("\nAnswer:\n", answer)
