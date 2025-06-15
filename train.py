@@ -30,19 +30,12 @@ dataset = DatasetDict({
     "validation": Dataset.from_pandas(val_texts)
 })
 
-# Tokenizer
-tokenizer = DistilBertTokenizerFast.from_pretrained(config["model_name_or_path"])
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
-def tokenize_function(examples):
-    return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=config["max_length"])
+model_name = "NousResearch/TinyLLaMA-1.1B-Chat-v1.0"
 
-tokenized_datasets = dataset.map(tokenize_function, batched=True)
-
-# Load model
-model = DistilBertForSequenceClassification.from_pretrained(
-    config["model_name_or_path"],
-    num_labels=2,
-)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name)
 
 # Training args
 training_args = TrainingArguments(
