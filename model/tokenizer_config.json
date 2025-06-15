@@ -1,1 +1,15 @@
+{
+  "bos_token": "<s>",
+  "eos_token": "</s>",
+  "unk_token": "<unk>",
+  "pad_token": "<pad>",
+  "sep_token": "<sep>",
+  "cls_token": "<cls>",
+  "mask_token": "<mask>",
+  "model_max_length": 512,
+  "tokenizer_class": "LlamaTokenizer",
+  "auto_map": {
+    "AutoTokenizer": "tokenizer.LlamaTokenizer"
+  }
+}
 
