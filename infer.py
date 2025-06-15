@@ -5,11 +5,14 @@ from utils import load_model, generate_response
 with open("config.json") as f:
     config = json.load(f)
 
-# Load model and tokenizer
-model, tokenizer = load_model(
-    config["model_name"],
-    quantized=config.get("quantized", True)
-)
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+model_name = "NousResearch/TinyLLaMA-1.1B-Chat-v1.0"  # Small, lightweight, finance-capable
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name)
+
 
 def infer(prompt):
     response = generate_response(
