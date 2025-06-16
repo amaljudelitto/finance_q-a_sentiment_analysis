@@ -1,46 +1,52 @@
-from transformers import AutoModelForSeq2SeqLM
-from transformers import AutoTokenizer
-
-
-model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-
-import os
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, Seq2SeqTrainer, Seq2SeqTrainingArguments, DataCollatorForSeq2Seq
+from datasets import load_dataset, Dataset
+import pandas as pd
 
 model_name = "google/flan-t5-base"
-
-
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
-def load_dataset(file_path, tokenizer, block_size=128):
-    return TextDataset(
-        tokenizer=tokenizer,
-        file_path=file_path,
-        block_size=block_size
-    )
+# Load CSV data into HuggingFace Dataset
+def load_data(path):
+    df = pd.read_csv(path)
+    dataset = Dataset.from_pandas(df)
+    return dataset.train_test_split(test_size=0.1)
+
+# Preprocessing function
+def preprocess_function(examples):
+    inputs = ["Q: " + q for q in examples["question"]]
+    targets = [a for a in examples["answer"]]
+    model_inputs = tokenizer(inputs, max_length=128, truncation=True, padding="max_length")
+    labels = tokenizer(targets, max_length=64, truncation=True, padding="max_length")
+
+    model_inputs["labels"] = labels["input_ids"]
+    return model_inputs
 
 def fine_tune_model():
-    dataset = load_dataset("data/financial_qa_dataset.txt", tokenizer)
+    dataset = load_data("data/financial_qa_dataset.csv")
+    tokenized_dataset = dataset.map(preprocess_function, batched=True)
 
-    training_args = TrainingArguments(
+    training_args = Seq2SeqTrainingArguments(
         output_dir="./finetuned_model",
-        overwrite_output_dir=True,
-        per_device_train_batch_size=2,
-        num_train_epochs=3,
-        save_steps=500,
+        evaluation_strategy="epoch",
+        learning_rate=2e-5,
+        per_device_train_batch_size=4,
+        per_device_eval_batch_size=4,
+        weight_decay=0.01,
         save_total_limit=1,
-        logging_dir='./logs',
-        logging_steps=50
+        num_train_epochs=3,
+        predict_with_generate=True,
+        logging_dir="./logs"
     )
 
-    data_collator = DataCollatorForLanguageModeling(
-        tokenizer=tokenizer, mlm=False
-    )
+    data_collator = DataCollatorForSeq2Seq(tokenizer, model=model)
 
-    trainer = Trainer(
+    trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
-        train_dataset=dataset,
+        train_dataset=tokenized_dataset["train"],
+        eval_dataset=tokenized_dataset["test"],
+        tokenizer=tokenizer,
         data_collator=data_collator
     )
 
