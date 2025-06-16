@@ -1,4 +1,7 @@
 from transformers import AutoModelForSeq2SeqLM
+from transformers import AutoTokenizer
+
+
 model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
 import os
