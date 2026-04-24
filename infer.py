@@ -20,7 +20,7 @@ def generate_answer(prompt, task_type="qa", max_length=150):
     inputs = tokenizer.encode(formatted_prompt, return_tensors="pt")
     
     with torch.no_grad():
-        outputs = model.generate(inputs, max_length=max_length, do_sample=True, top_p=0.95, temperature=0.8)
+        outputs = model.generate(inputs, max_length=max_length, do_sample=True, top_p=0.95, temperature=0.1)
         
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
