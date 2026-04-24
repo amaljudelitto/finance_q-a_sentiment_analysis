@@ -1,18 +1,19 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from pydantic import BaseModel
 from infer import generate_answer
-response = generate_answer(request.prompt)
 
 app = FastAPI()
 
 class PromptRequest(BaseModel):
     prompt: str
+    task_type: str = "qa"  # Defaults to Q&A if the user doesn't specify
 
 @app.get("/")
 def read_root():
-    return {"message": "Finance LLM is running!"}
+    return {"message": "Finance LLM API is running!"}
 
 @app.post("/generate/")
-def generate_answer(request: PromptRequest):
-    response = infer(request.prompt)
+def generate(request: PromptRequest):
+    # Pass both the prompt and the task type to your infer script
+    response = generate_answer(request.prompt, task_type=request.task_type)
     return {"response": response}
