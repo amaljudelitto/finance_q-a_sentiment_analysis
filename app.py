@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
-from infer import infer
+from infer import generate_answer
+response = generate_answer(request.prompt)
 
 app = FastAPI()
 
