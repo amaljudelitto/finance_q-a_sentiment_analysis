@@ -48,7 +48,7 @@ tokenized_dataset = dataset.map(preprocess, batched=True)
 # 4. Training Arguments
 training_args = Seq2SeqTrainingArguments(
     output_dir="./finetuned_model",
-    evaluation_strategy="no",
+    eval_strategy="no",
     per_device_train_batch_size=4, # Increased slightly if 8GB RAM allows
     num_train_epochs=3,            # 1 epoch isn't enough for multi-tasking
     save_steps=50,
